@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json.schemastore.org/staticwebapp.config.json",
+  "routes": [
+    {
+      "route": "/dash_data.json",
+      "allowedRoles": ["socio"]
+    },
+    {
+      "route": "/*",
+      "allowedRoles": ["socio"]
+    }
+  ],
+  "responseOverrides": {
+    "401": {
+      "statusCode": 302,
+      "redirect": "/.auth/login/aad"
+    }
+  },
+  "navigationFallback": {
+    "rewrite": "/index.html",
+    "exclude": ["/assets/*", "/*.json", "/*.css", "/*.js", "/*.png", "/*.svg", "/*.ico"]
+  },
+  "globalHeaders": {
+    "cache-control": "no-store"
+  }
+}
