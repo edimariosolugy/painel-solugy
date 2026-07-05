@@ -118,7 +118,7 @@ const CTip = ({active,payload,label,fmt}) => {
 /* ============ ABAS ============ */
 
 /* ---- 1. EXECUTIVA ---- */
-function TabExec({win}) {
+function TabExec({win, hoje}) {
   const k = D.kpi;
   const serie = D.serie.filter(s=>win.includes(s.k));
   const rec = serie.reduce((a,s)=>a+s.rec,0);
@@ -136,6 +136,29 @@ function TabExec({win}) {
       <Panel title="Análises Estratégicas" sub="leituras automáticas sobre os seus números — priorizadas por severidade">
         <div className="ex-ins-wrap">{ins.map((x,i)=><Insight key={i} {...x}/>)}</div>
       </Panel>
+      {hoje && (
+        <div className="ex-hoje">
+          <div className="ex-hoje-tag">VENDAS DE HOJE · {hoje.data}</div>
+          <div className="ex-hoje-cards">
+            <div className="ex-hoje-c">
+              <div className="ex-hoje-v">{brl0(hoje.faturamento)}</div>
+              <div className="ex-hoje-l">faturamento</div>
+            </div>
+            <div className="ex-hoje-c">
+              <div className="ex-hoje-v">{intf(hoje.num_vendas)}</div>
+              <div className="ex-hoje-l">vendas</div>
+            </div>
+            <div className="ex-hoje-c">
+              <div className="ex-hoje-v">{hoje.margem_pct.toFixed(1)}%</div>
+              <div className="ex-hoje-l">margem ({brl0(hoje.margem)})</div>
+            </div>
+            <div className="ex-hoje-c">
+              <div className="ex-hoje-v">{brl0(hoje.ticket_medio)}</div>
+              <div className="ex-hoje-l">ticket médio</div>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="ex-kpi-grid">
         <KpiCard label="RECEITA BRUTA" value={kbrl(rec)} sub={intf(nv)+" vendas"} delta={k.var.receita} big/>
         <KpiCard label="LUCRO BRUTO" value={kbrl(mg)} sub={mpct.toFixed(1)+"% margem"} delta={k.var.margem_pct} deltaGood={k.var.margem_pct>=0} big/>
@@ -573,6 +596,7 @@ export default function DashboardExec() {
   const [jan, setJan] = useState(12);
   const [usuario, setUsuario] = useState("");
   const [liveEstoque, setLiveEstoque] = useState(null);
+  const [liveHoje, setLiveHoje] = useState(null);
   const [liveSync, setLiveSync] = useState(null);
   useEffect(()=>{
     let vivo=true;
@@ -581,6 +605,7 @@ export default function DashboardExec() {
       .then(j=>{
         if(!vivo||!j) return;
         if(j.estoque) setLiveEstoque(j.estoque);
+        if(j.hoje) setLiveHoje(j.hoje);
         // pega a data de atualização do JSON novo p/ o carimbo "sinc."
         const s = (j.meta && j.meta.atualizado_em) || j.atualizado_em;
         if(s) setLiveSync(s);
@@ -624,7 +649,7 @@ export default function DashboardExec() {
         {ABAS.map(a=>(<button key={a.id} className={"ex-tab"+(aba===a.id?" on":"")} onClick={()=>setAba(a.id)}>{a.n}</button>))}
       </div>
       <div className="ex-body">
-        {aba==="exec" && <TabExec win={win}/>}
+        {aba==="exec" && <TabExec win={win} hoje={liveHoje}/>}
         {aba==="ind" && <TabInd/>}
         {aba==="cli" && <TabCli/>}
         {aba==="prod" && <TabProd/>}
@@ -672,6 +697,12 @@ const css = `
 .ex-ins-sev{font-size:8.5px;font-weight:700;letter-spacing:.5px;margin-left:auto;}
 .ex-ins-txt{font-size:12.5px;line-height:1.5;color:${C.txt};}
 .ex-kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
+.ex-hoje{background:linear-gradient(135deg,${C.orange}1a,${C.orange}05);border:1px solid ${C.orange}55;border-radius:12px;padding:14px 16px;margin-bottom:12px;}
+.ex-hoje-tag{font-size:10px;letter-spacing:1px;color:${C.orange};font-weight:700;font-family:'JetBrains Mono',monospace;margin-bottom:10px;}
+.ex-hoje-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;}
+.ex-hoje-c{border-left:2px solid ${C.orange}55;padding-left:12px;}
+.ex-hoje-v{font-size:22px;font-weight:700;color:${C.txt};line-height:1.1;}
+.ex-hoje-l{font-size:11px;color:${C.txt3};margin-top:3px;}
 .ex-kpi-grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
 .ex-kpi{background:${C.panel};border:1px solid ${C.border};border-radius:11px;padding:12px 14px;}
 .ex-kpi-lab{font-size:10px;color:${C.txt2};font-weight:600;letter-spacing:.6px;}
