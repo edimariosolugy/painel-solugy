@@ -573,11 +573,18 @@ export default function DashboardExec() {
   const [jan, setJan] = useState(12);
   const [usuario, setUsuario] = useState("");
   const [liveEstoque, setLiveEstoque] = useState(null);
+  const [liveSync, setLiveSync] = useState(null);
   useEffect(()=>{
     let vivo=true;
-    fetch("dash_data.json",{cache:"no-store"})
+    fetch("dash_data.json?t="+Date.now(),{cache:"no-store"})
       .then(r=>r.ok?r.json():null)
-      .then(j=>{ if(vivo&&j&&j.estoque) setLiveEstoque(j.estoque); })
+      .then(j=>{
+        if(!vivo||!j) return;
+        if(j.estoque) setLiveEstoque(j.estoque);
+        // pega a data de atualização do JSON novo p/ o carimbo "sinc."
+        const s = (j.meta && j.meta.atualizado_em) || j.atualizado_em;
+        if(s) setLiveSync(s);
+      })
       .catch(()=>{});
     return ()=>{vivo=false;};
   },[]);
@@ -610,7 +617,7 @@ export default function DashboardExec() {
         </div>
         <div className="ex-topright">
           <div className="ex-win">{JANELAS.map(j=>(<button key={j.id} className={"ex-win-btn"+(jan===j.id?" on":"")} onClick={()=>setJan(j.id)}>{j.n}</button>))}</div>
-          <div className="ex-sync">sinc. {D.meta.atualizado_em}</div>
+          <div className="ex-sync">sinc. {liveSync || D.meta.atualizado_em}</div>
         </div>
       </div>
       <div className="ex-tabs">
