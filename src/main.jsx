@@ -1,9 +1,9 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import PainelSolugy from "./PainelSolugy.jsx";
+import DashboardExec from "./DashboardExec.jsx";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
-    <PainelSolugy />
+    <DashboardExec />
   </React.StrictMode>
 );
