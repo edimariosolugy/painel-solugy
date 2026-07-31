@@ -24,6 +24,7 @@ const BLOCOS_VIVOS = {
   caixa:        v => v && v.aging && Array.isArray(v.proj),
   indicadores:  v => v && v.score_comp && v.guidance_meses,
   estoque:      v => v && v.resumo && Array.isArray(v.top_valor),
+  mercado:      v => v && (v.indicadores || v.pmc),
 };
 function mesclar(live) {
   if (!live) return D0;
@@ -545,7 +546,7 @@ function TabCaixa({D}) {
 /* ============ APP ============ */
 const ABAS = [
   {id:"exec", n:"Visão Executiva"},{id:"ind", n:"Indicadores"},{id:"cli", n:"Clientes"},
-  {id:"prod", n:"Produtos"},{id:"estoque", n:"Estoque"},{id:"vend", n:"Vendedores & Sazonalidade"},{id:"forn", n:"Fornecedores"},{id:"caixa", n:"Caixa & Dívidas"},
+  {id:"prod", n:"Produtos"},{id:"estoque", n:"Estoque"},{id:"vend", n:"Vendedores & Sazonalidade"},{id:"forn", n:"Fornecedores"},{id:"caixa", n:"Caixa & Dívidas"},{id:"mercado", n:"Mercado"},
 ];
 
 function TabEstoque({D}){
@@ -635,6 +636,93 @@ function TabEstoque({D}){
 }
 
 
+/* ---- MERCADO (BCB + IBGE) — avaliação estratégica ---- */
+function TabMercado({D}) {
+  const M = D.mercado;
+  const I = (M && M.indicadores) || null;
+  const pmc = (M && M.pmc) || null;
+  const comp = useMemo(()=>{
+    if(!pmc) return [];
+    const rec = Object.fromEntries(D.serie.map(s=>[s.k, s.rec]));
+    return pmc.serie.map(p=>({k:p.k, pmc:p.v, rec: rec[p.k]!==undefined?rec[p.k]:null}));
+  },[pmc, D]);
+  if(!M){
+    return (
+      <Panel title="Mercado">
+        <div style={{padding:"18px 4px",color:C.txt3,fontSize:13,lineHeight:1.6}}>
+          A aba Mercado aparece na próxima rodada do extrator: ele busca 1x/dia os indicadores do
+          <b style={{color:C.txt2}}> Banco Central</b> (Selic, CDI, IPCA, IGP-M, dólar) e do
+          <b style={{color:C.txt2}}> IBGE</b> (PMC — desempenho do varejo em MG) e grava tudo no dash_data.json.
+        </div>
+      </Panel>
+    );
+  }
+  const est = D.estoque && D.estoque.resumo;
+  const custoOp = (I && est) ? est.valor_total * I.cdi/100 : null;
+  const ins = [];
+  if(pmc) ins.push({sev: pmc.var_ult>=0?"ok":"warn", cat:"mercado",
+    t:`Varejo de MG ${pmc.var_ult>=0?"cresceu":"caiu"} ${Math.abs(pmc.var_ult).toLocaleString("pt-BR")}% em ${pmc.ref} vs mesmo mês do ano anterior (IBGE/PMC). Sua tendência mensal de receita é ${pct(D.indicadores.tend_mensal_pct)} — compare no gráfico abaixo.`});
+  if(custoOp!==null) ins.push({sev:"warn", cat:"capital",
+    t:`Com o CDI a ${I.cdi.toLocaleString("pt-BR")}% a.a., os ${kbrl(est.valor_total)} imobilizados em estoque têm custo de oportunidade de ~${kbrl(custoOp)}/ano. Liquidar itens encalhados reduz esse custo direto.`});
+  if(I) ins.push({sev:"ok", cat:"preços",
+    t:`IPCA acumulado 12m: ${I.ipca_12m.toLocaleString("pt-BR")}%. Reajuste de tabela abaixo disso é perda de margem real. IGP-M 12m (${I.igpm_12m.toLocaleString("pt-BR")}%) é a referência usual de reajuste de aluguel.`});
+  return (
+    <>
+      {ins.length>0 && (
+        <Panel title="Leitura estratégica" sub="seus números cruzados com o mercado — indicadores atualizados 1x/dia">
+          <div className="ex-ins-wrap">{ins.map((x,i)=><Insight key={i} {...x}/>)}</div>
+        </Panel>
+      )}
+      {I && (
+        <div className="ex-kpi-grid">
+          <KpiCard label="SELIC META" value={I.selic.toLocaleString("pt-BR")+"% a.a."} sub={"CDI "+I.cdi.toLocaleString("pt-BR")+"% a.a."} big/>
+          <KpiCard label="IPCA 12 MESES" value={I.ipca_12m.toLocaleString("pt-BR")+"%"} sub={"mês "+I.ipca_ref+": "+I.ipca_mes.toLocaleString("pt-BR")+"%"}/>
+          <KpiCard label="IGP-M 12 MESES" value={I.igpm_12m.toLocaleString("pt-BR")+"%"} sub="referência de aluguéis"/>
+          <KpiCard label="DÓLAR (PTAX)" value={"R$ "+I.dolar.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})} sub={I.dolar_data}/>
+        </div>
+      )}
+      <div className="ex-row2">
+        {pmc ? (
+          <Panel title="Sua loja vs. varejo de MG" sub="barras: sua receita mensal · linha: variação do varejo mineiro vs mesmo mês do ano anterior (PMC/IBGE)">
+            <ResponsiveContainer width="100%" height={260}>
+              <ComposedChart data={comp} margin={{top:8,right:8,left:0,bottom:0}}>
+                <CartesianGrid stroke={C.line} strokeDasharray="2 4" vertical={false}/>
+                <XAxis dataKey="k" tick={{fill:C.txt3,fontSize:10}} axisLine={{stroke:C.line}} tickLine={false}/>
+                <YAxis yAxisId="l" tick={{fill:C.txt3,fontSize:10}} axisLine={false} tickLine={false} tickFormatter={kbrl} width={54}/>
+                <YAxis yAxisId="r" orientation="right" tick={{fill:C.txt3,fontSize:10}} axisLine={false} tickLine={false} tickFormatter={v=>v+"%"} width={38}/>
+                <Tooltip content={<CTip fmt={v=>Math.abs(v)>=1000?kbrl(v):v.toLocaleString("pt-BR")+"%"}/>}/>
+                <ReferenceLine yAxisId="r" y={0} stroke={C.txt3} strokeDasharray="3 3"/>
+                <Bar yAxisId="l" dataKey="rec" name="Receita Solugy" fill={C.orange} radius={[3,3,0,0]} maxBarSize={26}/>
+                <Line yAxisId="r" dataKey="pmc" name="Varejo MG %" stroke={C.blue} strokeWidth={2} dot={{r:2,fill:C.blue}}/>
+              </ComposedChart>
+            </ResponsiveContainer>
+          </Panel>
+        ) : (
+          <Panel title="Sua loja vs. varejo de MG" flag="PMC/IBGE indisponível na última coleta — o extrator tenta de novo amanhã."/>
+        )}
+        {M.ipca_serie ? (
+          <Panel title="Inflação mês a mês (IPCA)" sub="últimos 13 meses — IBGE, via API do Banco Central">
+            <ResponsiveContainer width="100%" height={260}>
+              <ComposedChart data={M.ipca_serie} margin={{top:8,right:8,left:0,bottom:0}}>
+                <CartesianGrid stroke={C.line} strokeDasharray="2 4" vertical={false}/>
+                <XAxis dataKey="k" tick={{fill:C.txt3,fontSize:10}} axisLine={{stroke:C.line}} tickLine={false}/>
+                <YAxis tick={{fill:C.txt3,fontSize:10}} axisLine={false} tickLine={false} tickFormatter={v=>v+"%"} width={38}/>
+                <Tooltip content={<CTip fmt={v=>v.toLocaleString("pt-BR")+"%"}/>}/>
+                <ReferenceLine y={0} stroke={C.txt3} strokeDasharray="3 3"/>
+                <Bar dataKey="v" name="IPCA mês" fill={C.blue} radius={[3,3,0,0]} maxBarSize={26}/>
+              </ComposedChart>
+            </ResponsiveContainer>
+          </Panel>
+        ) : (
+          <Panel title="Inflação (IPCA)" flag="BCB indisponível na última coleta — o extrator tenta de novo amanhã."/>
+        )}
+      </div>
+      <div className="ex-note">Fontes: Banco Central do Brasil (API SGS) e IBGE (PMC — Pesquisa Mensal de Comércio, volume de vendas, MG). Coleta 1x/dia pelo extrator · última coleta: {M.ts}.</div>
+    </>
+  );
+}
+
+
 const JANELAS = [{id:12,n:"12 meses"},{id:6,n:"6 meses"},{id:3,n:"3 meses"}];
 
 export default function DashboardExec() {
@@ -696,6 +784,7 @@ export default function DashboardExec() {
         {aba==="vend" && <TabVend D={D}/>}
         {aba==="forn" && <TabForn D={D}/>}
         {aba==="caixa" && <TabCaixa D={D}/>}
+        {aba==="mercado" && <TabMercado D={D}/>}
       </div>
       <div className="ex-foot">Dados reais do LJ Sistemas · {D.meta.periodo} · janela: {jan} meses (afeta a Visão Executiva). Abas de detalhe usam o período completo. Seções marcadas "dados não carregados" dependem de campos que o LJ não fornece hoje.</div>
     </div>
