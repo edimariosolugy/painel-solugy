@@ -25,6 +25,7 @@ const BLOCOS_VIVOS = {
   indicadores:  v => v && v.score_comp && v.guidance_meses,
   estoque:      v => v && v.resumo && Array.isArray(v.top_valor),
   mercado:      v => v && (v.indicadores || v.pmc),
+  pagamento:    v => v && Array.isArray(v.serie) && v.serie.length > 0,
 };
 function mesclar(live) {
   if (!live) return D0;
