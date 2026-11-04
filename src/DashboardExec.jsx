@@ -227,6 +227,40 @@ function TabExec({D, win, hoje}) {
           </ResponsiveContainer>
         </Panel>
       </div>
+      {(() => {
+        const pg = D.pagamento;
+        if (!pg || !pg.serie || !pg.serie.length) return (
+          <Panel title="À vista × A prazo" flag="dados não carregados — rode o extrator atualizado (bloco 'pagamento') para habilitar esta seção."/>
+        );
+        const ult = pg.serie[pg.serie.length - 1];
+        return (
+          <Panel title="À vista × A prazo — desde a fundação"
+                 sub="barras empilhadas: receita à vista (AV) e a prazo (AP) · linha: % a prazo no mês"
+                 right={<div style={{textAlign:"right",fontSize:11,color:C.txt2,lineHeight:1.5}}>
+                   <span style={{color:C.green}}>{kbrl(pg.total_av)} à vista</span>{" · "}
+                   <span style={{color:C.orange}}>{kbrl(pg.total_ap)} a prazo</span><br/>
+                   <b style={{color:pg.pct_prazo>=90?C.red:pg.pct_prazo>=80?C.amber:C.txt}}>{pg.pct_prazo.toFixed(1)}% do faturamento é a prazo</b>
+                 </div>}>
+            <ResponsiveContainer width="100%" height={240}>
+              <ComposedChart data={pg.serie} margin={{top:8,right:8,left:0,bottom:0}}>
+                <CartesianGrid stroke={C.line} strokeDasharray="2 4" vertical={false}/>
+                <XAxis dataKey="k" tick={{fill:C.txt3,fontSize:10}} axisLine={{stroke:C.line}} tickLine={false}/>
+                <YAxis yAxisId="l" tick={{fill:C.txt3,fontSize:10}} axisLine={false} tickLine={false} tickFormatter={kbrl} width={54}/>
+                <YAxis yAxisId="r" orientation="right" domain={[0,100]} tick={{fill:C.txt3,fontSize:10}} axisLine={false} tickLine={false} tickFormatter={v=>v+"%"} width={38}/>
+                <Tooltip content={<CTip fmt={kbrl}/>}/>
+                <Bar yAxisId="l" dataKey="av" name="À vista" stackId="p" fill={C.green} maxBarSize={26}/>
+                <Bar yAxisId="l" dataKey="ap" name="A prazo" stackId="p" fill={C.orange} radius={[3,3,0,0]} maxBarSize={26}/>
+                <Line yAxisId="r" dataKey="pct_prazo" name="% a prazo" stroke={C.amber} strokeWidth={2} dot={{r:2,fill:C.amber}}/>
+              </ComposedChart>
+            </ResponsiveContainer>
+            {ult && ult.pct_prazo >= 90 && (
+              <div className="ex-note" style={{marginTop:6,color:C.red}}>
+                ⚠ {ult.k}: {ult.pct_prazo.toFixed(1)}% das vendas a prazo — acima do teto de 90%. Reveja limites de crédito e trave novo faturamento de quem tem título vencido.
+              </div>
+            )}
+          </Panel>
+        );
+      })()}
       <div className="ex-note">* O LJ não separa impostos nem despesas operacionais; trabalhamos com receita e margem bruta (lucro bruto). "Lucro líquido", ROE e ROIC exigem dados de despesas, patrimônio e dívida — não disponíveis na base atual.</div>
     </>
   );
